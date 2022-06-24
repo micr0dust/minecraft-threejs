@@ -18,9 +18,25 @@ controls.getObject().position.set(-15, 2, 0);
 controls.getObject().lookAt(-14, 2, 0);
 scene.add(controls.getObject());
 
+const axesHelper = new THREE.AxesHelper(5);
+scene.add(axesHelper);
+
 // vars
 let speed = 0.2;
 let blockScale = 1;
+let collision
+
+let loaders = new THREE.TextureLoader();
+const texture = {
+    'grass': [
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_top.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/dirt.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") })
+    ]
+}
 
 function grid(range) {
     for (let i = -range; i < range; i++) {
@@ -43,7 +59,7 @@ function grid(range) {
         scene.add(line);
     }
 }
-//grid(1000);
+//grid(100);
 
 function terrain(range) {
     let blocks = [];
@@ -55,7 +71,7 @@ function terrain(range) {
         xoff = 0;
         for (let z = 0; z < range; z++) {
             let v = Math.round(noise.perlin2(xoff, yoff) * amplitude / blockScale) * blockScale;
-            blocks.push(new Block(x * blockScale, v, z * blockScale));
+            blocks.push(new Block(x * blockScale, v + 20, z * blockScale));
             xoff += inc;
         }
         yoff += inc;
@@ -64,7 +80,7 @@ function terrain(range) {
         blocks[i].display();
     }
 }
-terrain(20);
+terrain(40);
 
 let key = {};
 window.onload = function() {
@@ -103,18 +119,18 @@ function Block(x, y, z) {
     this.z = z;
     this.display = function() {
         let blockBox = new THREE.BoxBufferGeometry(blockScale, blockScale, blockScale);
-        let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
-        let block = new THREE.Mesh(blockBox, blockMesh);
+        //let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
+        let block = new THREE.Mesh(blockBox, texture["grass"]);
         scene.add(block);
         block.position.x = this.x;
         block.position.y = this.y;
         block.position.z = this.z;
-        let edges = new THREE.EdgesGeometry(blockBox);
-        let line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
-        scene.add(line);
-        line.position.x = this.x;
-        line.position.y = this.y;
-        line.position.z = this.z;
+        // let edges = new THREE.EdgesGeometry(blockBox);
+        // let line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+        // scene.add(line);
+        // line.position.x = this.x;
+        // line.position.y = this.y;
+        // line.position.z = this.z;
     }
 }
 
