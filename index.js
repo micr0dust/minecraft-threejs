@@ -43,7 +43,7 @@ function grid(range) {
         scene.add(line);
     }
 }
-grid(1000);
+//grid(1000);
 
 function terrain(range) {
     let blocks = [];
@@ -118,8 +118,8 @@ function Block(x, y, z) {
     }
 }
 
-function animate() {
-    requestAnimationFrame(animate);
+function update() {
+    requestAnimationFrame(update);
 
     if (controls.isLocked === true) {
         let lastY = controls.getObject().position.y
@@ -135,13 +135,12 @@ function animate() {
         playerDirection.z = Number(moveForward) - Number(moveBackward);
         playerDirection.y = Number(moveUp) - Number(moveDown);
         playerDirection.normalize();
-        controls.getObject().translateX(-playerDirection.x * speed);
-        controls.getObject().translateZ(-playerDirection.z * speed);
+        controls.moveForward(playerDirection.z * speed);
+        controls.moveRight(-playerDirection.x * speed);
         if (playerDirection.y) controls.getObject().position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
-        else controls.getObject().position.y = lastY;
     } else if (key["f11"]) controls.lock();
     document.getElementById('info').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
     renderer.render(scene, camera);
 }
-animate();
+update();
