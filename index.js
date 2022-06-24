@@ -10,6 +10,7 @@ camera.lookAt(-14, 2, 0);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
+//renderer.setClearColor(0x00F9FF, 1);
 document.body.appendChild(renderer.domElement);
 
 /* PointerLockControls setting */
@@ -18,16 +19,16 @@ controls.getObject().position.set(-15, 2, 0);
 controls.getObject().lookAt(-14, 2, 0);
 scene.add(controls.getObject());
 
-const axesHelper = new THREE.AxesHelper(5);
-scene.add(axesHelper);
+// const axesHelper = new THREE.AxesHelper(5);
+// scene.add(axesHelper);
 
 // vars
 let speed = 0.2;
 let blockScale = 1;
-let collision
+let collision;
 
 let loaders = new THREE.TextureLoader();
-const texture = {
+let texture = {
     'grass': [
         new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
         new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
@@ -61,11 +62,11 @@ function grid(range) {
 }
 //grid(100);
 
-function terrain(range) {
+function terrain_old(range) {
     let blocks = [];
     let xoff = 0;
     let yoff = 0;
-    let inc = Math.random() * 0.05;
+    let inc = 0.05;
     let amplitude = Math.random() * 100;
     for (let x = 0; x < range; x++) {
         xoff = 0;
@@ -80,7 +81,35 @@ function terrain(range) {
         blocks[i].display();
     }
 }
-terrain(40);
+
+
+function terrain(range) {
+    let chunks = [];
+    let xoff = 0;
+    let zoff = 0;
+    let inc = 0.05;
+    let amplitude = 6 + (Math.random() * 30);
+    let renderDistance = 3;
+    let chunksSize = 8;
+    for (let i = 0; i < renderDistance; i++) {
+        for (let j = 0; j < renderDistance; j++) {
+            let chunk = [];
+            for (let x = i * chunksSize; x < (i * chunksSize) + chunksSize; x++)
+                for (let z = j * chunksSize; z < (j * chunksSize) + chunksSize; z++) {
+                    xoff = inc * x;
+                    zoff = inc * z;
+                    let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
+                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+                }
+            chunks.push(chunk);
+        }
+    }
+    for (let i = 0; i < chunks.length; i++)
+        for (let j = 0; j < chunks[i].length; j++)
+            chunks[i][j].display();
+
+}
+terrain(100);
 
 let key = {};
 window.onload = function() {
@@ -120,6 +149,10 @@ function Block(x, y, z) {
     this.display = function() {
         let blockBox = new THREE.BoxBufferGeometry(blockScale, blockScale, blockScale);
         //let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
+        texture["grass"].forEach(img => {
+            //img.map.minFilter = THREE.NearestFilter;
+            img.map.magFilter = THREE.NearestFilter;
+        });
         let block = new THREE.Mesh(blockBox, texture["grass"]);
         scene.add(block);
         block.position.x = this.x;
