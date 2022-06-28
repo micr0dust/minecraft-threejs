@@ -5,8 +5,8 @@ import { PointerLockControls } from 'https://unpkg.com/three@0.141.0/examples/js
 /* init */
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
-camera.position.set(-15, 2, 0);
-camera.lookAt(-14, 2, 0);
+camera.position.set(0, 50, 0);
+camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -15,17 +15,18 @@ document.body.appendChild(renderer.domElement);
 
 /* PointerLockControls setting */
 const controls = new PointerLockControls(camera, document.body);
-controls.getObject().position.set(-15, 2, 0);
-controls.getObject().lookAt(-14, 2, 0);
-scene.add(controls.getObject());
 
 // const axesHelper = new THREE.AxesHelper(5);
 // scene.add(axesHelper);
 
 // vars
 let speed = 0.2;
-let blockScale = 1;
+let blockLine = false;
+let renderDistance = 3; //8
 let collision;
+const blockScale = 1;
+const chunksSize = 8;
+const chunksChange = 5; //30
 
 let loaders = new THREE.TextureLoader();
 let texture = {
@@ -62,35 +63,13 @@ function grid(range) {
 }
 //grid(100);
 
-function terrain_old(range) {
-    let blocks = [];
-    let xoff = 0;
-    let yoff = 0;
-    let inc = 0.05;
-    let amplitude = Math.random() * 100;
-    for (let x = 0; x < range; x++) {
-        xoff = 0;
-        for (let z = 0; z < range; z++) {
-            let v = Math.round(noise.perlin2(xoff, yoff) * amplitude / blockScale) * blockScale;
-            blocks.push(new Block(x * blockScale, v + 20, z * blockScale));
-            xoff += inc;
-        }
-        yoff += inc;
-    }
-    for (let i = 0; i < blocks.length; i++) {
-        blocks[i].display();
-    }
-}
+let chunks = [];
+let xoff = 0;
+let zoff = 0;
+let inc = 0.05;
+let amplitude = 6 * blockScale + (Math.random() * 10 * blockScale);
 
-
-function terrain(range) {
-    let chunks = [];
-    let xoff = 0;
-    let zoff = 0;
-    let inc = 0.05;
-    let amplitude = 6 + (Math.random() * 30);
-    let renderDistance = 3;
-    let chunksSize = 8;
+function terrain() {
     for (let i = 0; i < renderDistance; i++) {
         for (let j = 0; j < renderDistance; j++) {
             let chunk = [];
@@ -107,9 +86,11 @@ function terrain(range) {
     for (let i = 0; i < chunks.length; i++)
         for (let j = 0; j < chunks[i].length; j++)
             chunks[i][j].display();
-
+    for (let i = 0; i < chunks.length; i++)
+        console.log(`[${i}]`, chunks[i][0]);
+    console.log("------------------------------");
 }
-terrain(100);
+terrain();
 
 let key = {};
 window.onload = function() {
@@ -146,6 +127,8 @@ function Block(x, y, z) {
     this.x = x;
     this.y = y;
     this.z = z;
+    this.mesh;
+    this.line;
     this.display = function() {
         let blockBox = new THREE.BoxBufferGeometry(blockScale, blockScale, blockScale);
         //let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
@@ -153,25 +136,170 @@ function Block(x, y, z) {
             //img.map.minFilter = THREE.NearestFilter;
             img.map.magFilter = THREE.NearestFilter;
         });
-        let block = new THREE.Mesh(blockBox, texture["grass"]);
-        scene.add(block);
-        block.position.x = this.x;
-        block.position.y = this.y;
-        block.position.z = this.z;
-        // let edges = new THREE.EdgesGeometry(blockBox);
-        // let line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
-        // scene.add(line);
-        // line.position.x = this.x;
-        // line.position.y = this.y;
-        // line.position.z = this.z;
+        this.mesh = new THREE.Mesh(blockBox, texture["grass"]);
+        scene.add(this.mesh);
+        this.mesh.position.x = this.x;
+        this.mesh.position.y = this.y;
+        this.mesh.position.z = this.z;
+        if (blockLine) {
+            let edges = new THREE.EdgesGeometry(blockBox);
+            this.line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+            scene.add(this.line);
+            this.line.position.x = this.x;
+            this.line.position.y = this.y;
+            this.line.position.z = this.z;
+        }
     }
 }
 
+function edgeBlock(side) {
+    let posArr = [];
+    for (let i = 0; i < chunks.length; i++)
+        for (let j = 0; j < chunks[i].length; j++)
+            if (side.axe == 'x') posArr.push(chunks[i][j].x);
+            else if (side.axe == 'z') posArr.push(chunks[i][j].z);
+    return side.side ? Math.max.apply(null, posArr) : Math.min.apply(null, posArr);
+}
+
+function lowestZAlt() {
+    let newChunk = [];
+    for (let i = 0; i < chunks.length; i++) {
+        if ((i + 1) % renderDistance == 0)
+            for (let j = 0; j < chunks[i].length; j++) {
+                scene.remove(chunks[i][j].mesh);
+                scene.remove(chunks[i][j].line);
+            }
+        else
+            newChunk.push(chunks[i]);
+    }
+
+    let lowestX = edgeBlock({ axe: 'x', side: 0 });
+    let lowestZ = edgeBlock({ axe: 'z', side: 0 });
+    for (let i = 0; i < renderDistance; i++) {
+        let chunk = [];
+        for (let x = lowestX + (i * chunksSize); x < lowestX + ((i + 1) * chunksSize); x++) {
+            for (let z = lowestZ - (chunksSize); z < lowestZ; z++) {
+                xoff = inc * x;
+                zoff = inc * z;
+                let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
+                chunk.push(new Block(x * blockScale, v, z * blockScale));
+            }
+        }
+        newChunk.splice(i * renderDistance, 0, chunk);
+    }
+    chunks = newChunk;
+
+    for (let i = 0; i < chunks.length; i++)
+        if (i % (renderDistance) == 0)
+            for (let j = 0; j < chunks[i].length; j++)
+                chunks[i][j].display();
+}
+
+function highestZAlt() {
+    let newChunk = [];
+    for (let i = 0; i < chunks.length; i++) {
+        if (i % renderDistance == 0)
+            for (let j = 0; j < chunks[i].length; j++) {
+                scene.remove(chunks[i][j].mesh);
+                scene.remove(chunks[i][j].line);
+            }
+        else
+            newChunk.push(chunks[i]);
+    }
+
+    let lowestX = edgeBlock({ axe: 'x', side: 0 });
+    let highestZ = edgeBlock({ axe: 'z', side: 1 });
+    for (let i = 0; i < renderDistance; i++) {
+        let chunk = [];
+        for (let x = lowestX + (i * chunksSize); x < lowestX + ((i + 1) * chunksSize); x++) {
+            for (let z = highestZ; z < highestZ + chunksSize; z++) {
+                xoff = inc * x;
+                zoff = inc * z;
+                let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
+                chunk.push(new Block(x * blockScale, v, z * blockScale));
+            }
+        }
+        newChunk.splice((i + 1) * renderDistance - 1, 0, chunk);
+    }
+    chunks = newChunk;
+
+    for (let i = 0; i < chunks.length; i++)
+        if ((i + 1) % (renderDistance) == 0)
+            for (let j = 0; j < chunks[i].length; j++)
+                chunks[i][j].display();
+}
+
+function lowestXAlt() {
+    let newChunk = [];
+    for (let i = 0; i < chunks.length; i++) {
+        if (i >= chunks.length - renderDistance)
+            for (let j = 0; j < chunks[i].length; j++) {
+                scene.remove(chunks[i][j].mesh);
+                scene.remove(chunks[i][j].line);
+            }
+        else
+            newChunk.push(chunks[i]);
+    }
+
+    let lowestX = edgeBlock({ axe: 'x', side: 0 });
+    let lowestZ = edgeBlock({ axe: 'z', side: 0 });
+    for (let i = 0; i < renderDistance; i++) {
+        let chunk = [];
+        for (let z = lowestZ + (i * chunksSize); z < lowestZ + ((i + 1) * chunksSize); z++) {
+            for (let x = lowestX - (chunksSize); x < lowestX; x++) {
+                xoff = inc * x;
+                zoff = inc * z;
+                let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
+                chunk.push(new Block(x * blockScale, v, z * blockScale));
+            }
+        }
+        newChunk.splice(i, 0, chunk);
+    }
+    chunks = newChunk;
+
+    for (let i = 0; i < renderDistance; i++)
+        for (let j = 0; j < chunks[i].length; j++)
+            chunks[i][j].display();
+}
+
+function highestXAlt() {
+    let newChunk = [];
+    for (let i = 0; i < chunks.length; i++) {
+        if (i < renderDistance)
+            for (let j = 0; j < chunks[i].length; j++) {
+                scene.remove(chunks[i][j].mesh);
+                scene.remove(chunks[i][j].line);
+            }
+        else
+            newChunk.push(chunks[i]);
+    }
+
+    let highestX = edgeBlock({ axe: 'x', side: 1 });
+    let lowestZ = edgeBlock({ axe: 'z', side: 0 });
+    for (let i = 0; i < renderDistance; i++) {
+        let chunk = [];
+        for (let z = lowestZ + (i * chunksSize); z < lowestZ + ((i + 1) * chunksSize); z++) {
+            for (let x = highestX; x < highestX + (chunksSize); x++) {
+                xoff = inc * x;
+                zoff = inc * z;
+                let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
+                chunk.push(new Block(x * blockScale, v, z * blockScale));
+            }
+        }
+        newChunk.splice(i + chunks.length - renderDistance, 0, chunk);
+    }
+    chunks = newChunk;
+
+    for (let i = renderDistance * renderDistance - renderDistance; i < chunks.length; i++)
+        for (let j = 0; j < chunks[i].length; j++)
+            chunks[i][j].display();
+}
+
+
+
 function update() {
     requestAnimationFrame(update);
-
     if (controls.isLocked === true) {
-        let lastY = controls.getObject().position.y
         let playerDirection = new THREE.Vector3(0, 0, 0);
         let moveForward = key["w"] || false;
         let moveLeft = key["a"] || false;
@@ -183,10 +311,15 @@ function update() {
         playerDirection.x = Number(moveLeft) - Number(moveRight);
         playerDirection.z = Number(moveForward) - Number(moveBackward);
         playerDirection.y = Number(moveUp) - Number(moveDown);
-        playerDirection.normalize();
+        //playerDirection.normalize();
         controls.moveForward(playerDirection.z * speed);
         controls.moveRight(-playerDirection.x * speed);
-        if (playerDirection.y) controls.getObject().position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
+        if (playerDirection.y) camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
+
+        if (camera.position.z <= edgeBlock({ axe: 'z', side: 0 }) + chunksChange) lowestZAlt();
+        else if (camera.position.z >= edgeBlock({ axe: 'z', side: 1 }) - chunksChange) highestZAlt();
+        else if (camera.position.x <= edgeBlock({ axe: 'x', side: 0 }) + chunksChange) lowestXAlt();
+        else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange) highestXAlt();
     } else if (key["f11"]) controls.lock();
     document.getElementById('info').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
