@@ -2,16 +2,27 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'https://unpkg.com/three@0.141.0/examples/jsm/loaders/GLTFLoader.js';
 import { PointerLockControls } from 'https://unpkg.com/three@0.141.0/examples/jsm/controls/PointerLockControls.js';
 
+// vars
+let speed = 0.2;
+let blockLine = false;
+let renderDistance = 10; //8
+let collision;
+const blockScale = 1;
+const chunksSize = 8;
+const chunksChange = chunksSize * renderDistance / 3;
+
 /* init */
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
-camera.position.set(0, 50, 0);
-camera.lookAt(0, 0, 0);
-
+scene.background = new THREE.Color(0x000000);
+scene.fog = new THREE.Fog(0x000000, 2 * blockScale, 40 * blockScale)
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 //renderer.setClearColor(0x00F9FF, 1);
 document.body.appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
+camera.position.set(0, 30, 0);
+camera.lookAt(0, 0, 0);
 
 /* PointerLockControls setting */
 const controls = new PointerLockControls(camera, document.body);
@@ -19,14 +30,23 @@ const controls = new PointerLockControls(camera, document.body);
 // const axesHelper = new THREE.AxesHelper(5);
 // scene.add(axesHelper);
 
-// vars
-let speed = 0.2;
-let blockLine = false;
-let renderDistance = 8; //8
-let collision;
-const blockScale = 1;
-const chunksSize = 8;
-const chunksChange = 8 * renderDistance / 5; //30
+const stats = new Stats();
+stats.showPanel(0);
+/*
+FPS    Frames rendered in the last second. The higher the number the better.
+MS     Milliseconds needed to render a frame. The lower the number the better.
+MB     MBytes of allocated memory. (Run Chrome with --enable-precise-memory-info)
+CUSTOM User-defined panel support.
+ */
+document.body.appendChild(stats.dom);
+
+function animate() {
+    stats.begin();
+
+    stats.end();
+    requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
 
 let loaders = new THREE.TextureLoader();
 let texture = {
@@ -86,9 +106,6 @@ function terrain() {
     for (let i = 0; i < chunks.length; i++)
         for (let j = 0; j < chunks[i].length; j++)
             chunks[i][j].display();
-    for (let i = 0; i < chunks.length; i++)
-        console.log(`[${i}]`, chunks[i][0]);
-    console.log("------------------------------");
 }
 terrain();
 
@@ -114,12 +131,10 @@ window.onload = function() {
     // add event listener to show/hide a UI (e.g. the game's menu)
     controls.addEventListener('lock', function() {
         //menu.style.display = 'none';
-        console.log('lock');
     });
 
     controls.addEventListener('unlock', function() {
         //menu.style.display = 'block';
-        console.log('unlock');
     });
 }
 
