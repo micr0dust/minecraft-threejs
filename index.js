@@ -2,19 +2,34 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'https://unpkg.com/three@0.141.0/examples/jsm/loaders/GLTFLoader.js';
 import { PointerLockControls } from 'https://unpkg.com/three@0.141.0/examples/jsm/controls/PointerLockControls.js';
 
+//texture
+let loaders = new THREE.TextureLoader();
+let texture = {
+    'grass': [
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_top.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/dirt.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
+        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") })
+    ]
+}
+
 // vars
-let speed = 0.2;
-let blockLine = false;
-let renderDistance = 5; //8
-let collision;
 const blockScale = 1;
 const chunksSize = 16;
+let renderDistance = 5; //8
 const chunksChange = chunksSize * renderDistance / 3;
 let chunks = [];
 let xoff = 0;
 let zoff = 0;
 let inc = 0.05;
 let amplitude = 6 * blockScale + (Math.random() * 10 * blockScale);
+let blockBox = new THREE.BoxGeometry(blockScale, blockScale, blockScale);
+let instancedChunk = new THREE.InstancedMesh(blockBox, texture["grass"], chunksSize * chunksSize * renderDistance * renderDistance);
+let speed = 0.2 * blockScale;
+let blockLine = false;
+let collision;
 
 /* init */
 const scene = new THREE.Scene();
@@ -53,41 +68,6 @@ function animate() {
 }
 requestAnimationFrame(animate);
 
-let loaders = new THREE.TextureLoader();
-let texture = {
-    'grass': [
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_top.png") }),
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/dirt.png") }),
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") }),
-        new THREE.MeshBasicMaterial({ map: loaders.load("./textures/blocks/grass_side.png") })
-    ]
-}
-
-function grid(range) {
-    for (let i = -range; i < range; i++) {
-        const material_line = new THREE.LineBasicMaterial({ color: 0x0000ff });
-        const points = [];
-        points.push(new THREE.Vector3(i, 0, -range));
-        points.push(new THREE.Vector3(i, 0, range));
-        const geometry_line = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geometry_line, material_line);
-        scene.add(line);
-    }
-
-    for (let i = -range; i < range; i++) {
-        const material_line = new THREE.LineBasicMaterial({ color: 0x0000ff });
-        const points = [];
-        points.push(new THREE.Vector3(-range, 0, i));
-        points.push(new THREE.Vector3(range, 0, i));
-        const geometry_line = new THREE.BufferGeometry().setFromPoints(points);
-        const line = new THREE.Line(geometry_line, material_line);
-        scene.add(line);
-    }
-}
-//grid(100);
-
 function terrain() {
     for (let i = 0; i < renderDistance; i++) {
         for (let j = 0; j < renderDistance; j++) {
@@ -102,9 +82,7 @@ function terrain() {
             chunks.push(chunk);
         }
     }
-    for (let i = 0; i < chunks.length; i++)
-        for (let j = 0; j < chunks[i].length; j++)
-            chunks[i][j].display();
+    reDraw();
 }
 terrain();
 
@@ -155,8 +133,6 @@ function Block(x, y, z) {
     this.x = x;
     this.y = y;
     this.z = z;
-    this.mesh;
-    this.line;
 
     this.getVoxel = function(x, y, z) {
         for (let i = 0; i < chunks.length; i++)
@@ -177,58 +153,13 @@ function Block(x, y, z) {
             );
             if (overlap)
                 this.direction.push(dir[3]);
-            // switch (dir[3]) {
-            //     case "right":
-            //         this.direction.push("right");
-            //         break;
-            //     case "left":
-            //         this.direction.push("left");
-            //         break;
-            //     case "buttom":
-            //         this.direction.push("buttom");
-            //         break;
-            //     case "top":
-            //         this.direction.push("top");
-            //         break;
-            //     case "back":
-            //         this.direction.push("back");
-            //         break;
-            //     case "front":
-            //         this.direction.push("front");
-            //         break;
-            // }
         }
     };
+    // texture["grass"].forEach(img => {
+    //     //img.map.minFilter = THREE.NearestFilter;
+    //     img.map.magFilter = THREE.NearestFilter;
+    // });
 
-    this.display = function() {
-        this.adjustFace();
-        let blockBox = new THREE.BoxBufferGeometry(blockScale, blockScale, blockScale);
-        //let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
-        texture["grass"].forEach(img => {
-            //img.map.minFilter = THREE.NearestFilter;
-            img.map.magFilter = THREE.NearestFilter;
-        });
-        this.mesh = new THREE.Mesh(blockBox, [
-            (this.direction.includes("right") ? null : texture["grass"][0]),
-            (this.direction.includes("left") ? null : texture["grass"][1]),
-            (this.direction.includes("top") ? null : texture["grass"][2]),
-            (this.direction.includes("buttom") ? null : texture["grass"][3]),
-            (this.direction.includes("front") ? null : texture["grass"][4]),
-            (this.direction.includes("back") ? null : texture["grass"][5]),
-        ]);
-        scene.add(this.mesh);
-        this.mesh.position.x = this.x;
-        this.mesh.position.y = this.y;
-        this.mesh.position.z = this.z;
-        if (blockLine) {
-            let edges = new THREE.EdgesGeometry(blockBox);
-            this.line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
-            scene.add(this.line);
-            this.line.position.x = this.x;
-            this.line.position.y = this.y;
-            this.line.position.z = this.z;
-        }
-    }
 }
 
 function edgeBlock(side) {
@@ -240,15 +171,25 @@ function edgeBlock(side) {
     return side.side ? Math.max.apply(null, posArr) : Math.min.apply(null, posArr);
 }
 
+function reDraw() {
+    scene.remove(instancedChunk);
+    instancedChunk = new THREE.InstancedMesh(blockBox, texture["grass"], chunksSize * chunksSize * renderDistance * renderDistance);
+    for (let i = 0, count = 0; i < chunks.length; i++)
+        for (let j = 0; j < chunks[i].length; j++, count++) {
+            let matrix = new THREE.Matrix4().makeTranslation(
+                chunks[i][j].x,
+                chunks[i][j].y,
+                chunks[i][j].z
+            );
+            instancedChunk.setMatrixAt(count, matrix);
+        }
+    scene.add(instancedChunk);
+}
+
 function lowestZAlt() {
     let newChunk = [];
     for (let i = 0; i < chunks.length; i++) {
-        if ((i + 1) % renderDistance == 0)
-            for (let j = 0; j < chunks[i].length; j++) {
-                scene.remove(chunks[i][j].mesh);
-                scene.remove(chunks[i][j].line);
-            }
-        else
+        if ((i + 1) % renderDistance != 0)
             newChunk.push(chunks[i]);
     }
 
@@ -267,22 +208,13 @@ function lowestZAlt() {
         newChunk.splice(i * renderDistance, 0, chunk);
     }
     chunks = newChunk;
-
-    for (let i = 0; i < chunks.length; i++)
-        if (i % (renderDistance) == 0)
-            for (let j = 0; j < chunks[i].length; j++)
-                chunks[i][j].display();
+    reDraw();
 }
 
 function highestZAlt() {
     let newChunk = [];
     for (let i = 0; i < chunks.length; i++) {
-        if (i % renderDistance == 0)
-            for (let j = 0; j < chunks[i].length; j++) {
-                scene.remove(chunks[i][j].mesh);
-                scene.remove(chunks[i][j].line);
-            }
-        else
+        if (i % renderDistance != 0)
             newChunk.push(chunks[i]);
     }
 
@@ -301,22 +233,13 @@ function highestZAlt() {
         newChunk.splice((i + 1) * renderDistance - 1, 0, chunk);
     }
     chunks = newChunk;
-
-    for (let i = 0; i < chunks.length; i++)
-        if ((i + 1) % (renderDistance) == 0)
-            for (let j = 0; j < chunks[i].length; j++)
-                chunks[i][j].display();
+    reDraw();
 }
 
 function lowestXAlt() {
     let newChunk = [];
     for (let i = 0; i < chunks.length; i++) {
-        if (i >= chunks.length - renderDistance)
-            for (let j = 0; j < chunks[i].length; j++) {
-                scene.remove(chunks[i][j].mesh);
-                scene.remove(chunks[i][j].line);
-            }
-        else
+        if (i < chunks.length - renderDistance)
             newChunk.push(chunks[i]);
     }
 
@@ -335,21 +258,13 @@ function lowestXAlt() {
         newChunk.splice(i, 0, chunk);
     }
     chunks = newChunk;
-
-    for (let i = 0; i < renderDistance; i++)
-        for (let j = 0; j < chunks[i].length; j++)
-            chunks[i][j].display();
+    reDraw();
 }
 
 function highestXAlt() {
     let newChunk = [];
     for (let i = 0; i < chunks.length; i++) {
-        if (i < renderDistance)
-            for (let j = 0; j < chunks[i].length; j++) {
-                scene.remove(chunks[i][j].mesh);
-                scene.remove(chunks[i][j].line);
-            }
-        else
+        if (i >= renderDistance)
             newChunk.push(chunks[i]);
     }
 
@@ -368,10 +283,7 @@ function highestXAlt() {
         newChunk.splice(i + chunks.length - renderDistance, 0, chunk);
     }
     chunks = newChunk;
-
-    for (let i = renderDistance * renderDistance - renderDistance; i < chunks.length; i++)
-        for (let j = 0; j < chunks[i].length; j++)
-            chunks[i][j].display();
+    reDraw();
 }
 
 function update() {
