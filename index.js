@@ -22,11 +22,11 @@ const controls = new PointerLockControls(camera, document.body);
 // vars
 let speed = 0.2;
 let blockLine = false;
-let renderDistance = 3; //8
+let renderDistance = 8; //8
 let collision;
 const blockScale = 1;
 const chunksSize = 8;
-const chunksChange = 5; //30
+const chunksChange = 8 * renderDistance / 5; //30
 
 let loaders = new THREE.TextureLoader();
 let texture = {
@@ -212,7 +212,7 @@ function highestZAlt() {
     for (let i = 0; i < renderDistance; i++) {
         let chunk = [];
         for (let x = lowestX + (i * chunksSize); x < lowestX + ((i + 1) * chunksSize); x++) {
-            for (let z = highestZ; z < highestZ + chunksSize; z++) {
+            for (let z = highestZ + 1; z < highestZ + chunksSize + 1; z++) {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
@@ -279,7 +279,7 @@ function highestXAlt() {
     for (let i = 0; i < renderDistance; i++) {
         let chunk = [];
         for (let z = lowestZ + (i * chunksSize); z < lowestZ + ((i + 1) * chunksSize); z++) {
-            for (let x = highestX; x < highestX + (chunksSize); x++) {
+            for (let x = highestX + 1; x < highestX + (chunksSize) + 1; x++) {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
@@ -294,8 +294,6 @@ function highestXAlt() {
         for (let j = 0; j < chunks[i].length; j++)
             chunks[i][j].display();
 }
-
-
 
 function update() {
     requestAnimationFrame(update);
@@ -315,12 +313,13 @@ function update() {
         controls.moveForward(playerDirection.z * speed);
         controls.moveRight(-playerDirection.x * speed);
         if (playerDirection.y) camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
-
-        if (camera.position.z <= edgeBlock({ axe: 'z', side: 0 }) + chunksChange) lowestZAlt();
-        else if (camera.position.z >= edgeBlock({ axe: 'z', side: 1 }) - chunksChange) highestZAlt();
-        else if (camera.position.x <= edgeBlock({ axe: 'x', side: 0 }) + chunksChange) lowestXAlt();
-        else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange) highestXAlt();
     } else if (key["f11"]) controls.lock();
+
+    if (camera.position.z <= edgeBlock({ axe: 'z', side: 0 }) + chunksChange) lowestZAlt('z-');
+    else if (camera.position.z >= edgeBlock({ axe: 'z', side: 1 }) - chunksChange) highestZAlt('z+');
+    else if (camera.position.x <= edgeBlock({ axe: 'x', side: 0 }) + chunksChange) lowestXAlt('x-');
+    else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange) highestXAlt('x+');
+
     document.getElementById('info').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
     renderer.render(scene, camera);
