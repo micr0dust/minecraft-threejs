@@ -5,11 +5,11 @@ import { PointerLockControls } from 'https://unpkg.com/three@0.141.0/examples/js
 // vars
 let speed = 0.2;
 let blockLine = false;
-let renderDistance = 10; //8
+let renderDistance = 5; //8
 let collision;
 const blockScale = 1;
-const chunksSize = 8;
-const chunksChange = chunksSize * renderDistance / 5;
+const chunksSize = 16;
+const chunksChange = chunksSize * renderDistance / 3;
 let chunks = [];
 let xoff = 0;
 let zoff = 0;
@@ -19,15 +19,15 @@ let amplitude = 6 * blockScale + (Math.random() * 10 * blockScale);
 /* init */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 2 * blockScale, 40 * blockScale)
+scene.fog = new THREE.Fog(0x000000, 2 * blockScale, 30 * blockScale)
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 //renderer.setClearColor(0x00F9FF, 1);
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 40 * blockScale);
-camera.position.set(0, 30, 0);
-camera.lookAt(0, 0, 0);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 30 * blockScale);
+camera.position.set(0, 20, 0);
+camera.lookAt(1, 0, 0);
 
 /* PointerLockControls setting */
 const controls = new PointerLockControls(camera, document.body);
@@ -399,7 +399,7 @@ function update() {
     else if (camera.position.x <= edgeBlock({ axe: 'x', side: 0 }) + chunksChange) lowestXAlt('x-');
     else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange) highestXAlt('x+');
 
-    document.getElementById('info').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
+    document.getElementById('axe').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
     renderer.render(scene, camera);
     //console.log(chunks[0][0].direction)
