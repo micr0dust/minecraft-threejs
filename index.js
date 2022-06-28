@@ -9,7 +9,12 @@ let renderDistance = 10; //8
 let collision;
 const blockScale = 1;
 const chunksSize = 8;
-const chunksChange = chunksSize * renderDistance / 3;
+const chunksChange = chunksSize * renderDistance / 5;
+let chunks = [];
+let xoff = 0;
+let zoff = 0;
+let inc = 0.05;
+let amplitude = 6 * blockScale + (Math.random() * 10 * blockScale);
 
 /* init */
 const scene = new THREE.Scene();
@@ -20,7 +25,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 //renderer.setClearColor(0x00F9FF, 1);
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 100);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 40 * blockScale);
 camera.position.set(0, 30, 0);
 camera.lookAt(0, 0, 0);
 
@@ -83,12 +88,6 @@ function grid(range) {
 }
 //grid(100);
 
-let chunks = [];
-let xoff = 0;
-let zoff = 0;
-let inc = 0.05;
-let amplitude = 6 * blockScale + (Math.random() * 10 * blockScale);
-
 function terrain() {
     for (let i = 0; i < renderDistance; i++) {
         for (let j = 0; j < renderDistance; j++) {
@@ -139,19 +138,84 @@ window.onload = function() {
 }
 
 function Block(x, y, z) {
+    const blockFace = [{
+        dir: [-blockScale, 0, 0, "left"]
+    }, {
+        dir: [blockScale, 0, 0, "right"]
+    }, {
+        dir: [0, -blockScale, 0, "buttom"]
+    }, {
+        dir: [0, blockScale, 0, "top"]
+    }, {
+        dir: [0, 0, -blockScale, "back"]
+    }, {
+        dir: [0, 0, blockScale, "front"]
+    }];
+
     this.x = x;
     this.y = y;
     this.z = z;
     this.mesh;
     this.line;
+
+    this.getVoxel = function(x, y, z) {
+        for (let i = 0; i < chunks.length; i++)
+            for (let j = 0; j < chunks[i].length; j++)
+                if (chunks[i][j].x == x && chunks[i][j].y == y && chunks[i][j].z == z)
+                    return true;
+        return false;
+    };
+
+    this.direction = [];
+    this.adjustFace = function() {
+        for (const { dir }
+            of blockFace) {
+            const overlap = this.getVoxel(
+                this.x + dir[0],
+                this.y + dir[1],
+                this.z + dir[2]
+            );
+            if (overlap)
+                this.direction.push(dir[3]);
+            // switch (dir[3]) {
+            //     case "right":
+            //         this.direction.push("right");
+            //         break;
+            //     case "left":
+            //         this.direction.push("left");
+            //         break;
+            //     case "buttom":
+            //         this.direction.push("buttom");
+            //         break;
+            //     case "top":
+            //         this.direction.push("top");
+            //         break;
+            //     case "back":
+            //         this.direction.push("back");
+            //         break;
+            //     case "front":
+            //         this.direction.push("front");
+            //         break;
+            // }
+        }
+    };
+
     this.display = function() {
+        this.adjustFace();
         let blockBox = new THREE.BoxBufferGeometry(blockScale, blockScale, blockScale);
         //let blockMesh = new THREE.MeshBasicMaterial({ color: 0x44BC23 });
         texture["grass"].forEach(img => {
             //img.map.minFilter = THREE.NearestFilter;
             img.map.magFilter = THREE.NearestFilter;
         });
-        this.mesh = new THREE.Mesh(blockBox, texture["grass"]);
+        this.mesh = new THREE.Mesh(blockBox, [
+            (this.direction.includes("right") ? null : texture["grass"][0]),
+            (this.direction.includes("left") ? null : texture["grass"][1]),
+            (this.direction.includes("top") ? null : texture["grass"][2]),
+            (this.direction.includes("buttom") ? null : texture["grass"][3]),
+            (this.direction.includes("front") ? null : texture["grass"][4]),
+            (this.direction.includes("back") ? null : texture["grass"][5]),
+        ]);
         scene.add(this.mesh);
         this.mesh.position.x = this.x;
         this.mesh.position.y = this.y;
@@ -338,5 +402,6 @@ function update() {
     document.getElementById('info').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
     renderer.render(scene, camera);
+    //console.log(chunks[0][0].direction)
 }
 update();
