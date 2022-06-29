@@ -18,8 +18,9 @@ let texture = {
 // vars
 const blockScale = 1;
 const chunksSize = 16;
-let renderDistance = 5; //8
-const chunksChange = chunksSize * renderDistance / 3;
+let renderDistance = 20; //8
+const worldSize = chunksSize * renderDistance * blockScale;
+const chunksChange = worldSize * 0.4;
 let chunks = [];
 let xoff = 0;
 let zoff = 0;
@@ -34,13 +35,13 @@ let collision;
 /* init */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 2 * blockScale, 30 * blockScale)
+scene.fog = new THREE.Fog(0x000000, 2 * blockScale, chunksChange);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 //renderer.setClearColor(0x00F9FF, 1);
 document.body.appendChild(renderer.domElement);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 30 * blockScale);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, chunksChange);
 camera.position.set(0, 20, 0);
 camera.lookAt(1, 0, 0);
 
@@ -103,6 +104,8 @@ window.onload = function() {
 
     window.addEventListener('resize', function() {
         renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
     });
 
     // add event listener to show/hide a UI (e.g. the game's menu)
@@ -159,7 +162,6 @@ function Block(x, y, z) {
     //     //img.map.minFilter = THREE.NearestFilter;
     //     img.map.magFilter = THREE.NearestFilter;
     // });
-
 }
 
 function edgeBlock(side) {
