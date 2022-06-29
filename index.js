@@ -21,6 +21,9 @@ const chunksSize = 16;
 let renderDistance = 20; //8
 const worldSize = chunksSize * renderDistance * blockScale;
 const chunksChange = worldSize * 0.4;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2((0.5) * 2 - 1, -1 * (0.5) * 2 + 1);
+let armsLen = 10;
 let chunks = [];
 let xoff = 0;
 let zoff = 0;
@@ -31,6 +34,88 @@ let instancedChunk = new THREE.InstancedMesh(blockBox, texture["grass"], chunksS
 let speed = 0.2 * blockScale;
 let blockLine = false;
 let collision;
+
+var plane;
+
+function render() {
+    raycaster.setFromCamera(pointer, camera);
+    let intersection = raycaster.intersectObject(instancedChunk);
+    if (intersection[0] != undefined && intersection[0].distance < armsLen) {
+        if (!scene.children.includes(plane)) {
+            let planeG = new THREE.PlaneGeometry(blockScale, blockScale);
+            let planeM = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+            planeM.transparent = true;
+            planeM.opacity = 0.2;
+            plane = new THREE.Mesh(planeG, planeM);
+            scene.add(plane);
+        } else {
+            plane.visible = true;
+            let materiaIndex = intersection[0].face.materialIndex;
+            let position = intersection[0].point;
+            let x = 0,
+                y = 0,
+                z = 0;
+            const inc = 0.01;
+            switch (materiaIndex) {
+                case 0:
+                    plane.rotation.x = 0;
+                    plane.rotation.y = (Math.PI / 2);
+                    plane.rotation.z = 0;
+                    x = position.x + inc;
+                    y = Math.round(position.y / blockScale) * blockScale;
+                    z = Math.round(position.z / blockScale) * blockScale;
+                    break;
+                case 1:
+                    plane.rotation.x = 0;
+                    plane.rotation.y = (Math.PI / 2);
+                    plane.rotation.z = 0;
+                    x = position.x - inc;
+                    y = Math.round(position.y / blockScale) * blockScale;
+                    z = Math.round(position.z / blockScale) * blockScale;
+                    break;
+                case 2:
+                    plane.rotation.x = (Math.PI / 2);
+                    plane.rotation.y = 0;
+                    plane.rotation.z = 0;
+                    x = Math.round(position.x / blockScale) * blockScale;
+                    y = position.y + inc;
+                    z = Math.round(position.z / blockScale) * blockScale;
+                    break;
+                case 3:
+                    plane.rotation.x = (Math.PI / 2);
+                    plane.rotation.y = 0;
+                    plane.rotation.z = 0;
+                    x = Math.round(position.x / blockScale) * blockScale;
+                    y = position.y - inc;
+                    z = Math.round(position.z / blockScale) * blockScale;
+                    break;
+                case 4:
+                    plane.rotation.x = 0;
+                    plane.rotation.y = 0;
+                    plane.rotation.z = 0;
+                    x = Math.round(position.x / blockScale) * blockScale;
+                    y = Math.round(position.y / blockScale) * blockScale;
+                    z = position.z + inc;
+                    break;
+                case 5:
+                    plane.rotation.x = 0;
+                    plane.rotation.y = 0;
+                    plane.rotation.z = 0;
+                    x = Math.round(position.x / blockScale) * blockScale;
+                    y = Math.round(position.y / blockScale) * blockScale;
+                    z = position.z - inc;
+                    break;
+                default:
+                    break;
+            }
+            plane.position.x = x;
+            plane.position.y = y;
+            plane.position.z = z;
+        }
+    } else if (plane)
+        plane.visible = false;
+}
+
 
 /* init */
 const scene = new THREE.Scene();
@@ -315,6 +400,7 @@ function update() {
 
     document.getElementById('axe').innerText = `X:${camera.position.x.toFixed(2)} Y:${camera.position.y.toFixed(2)} Z:${camera.position.z.toFixed(2)}`
 
+    render();
     renderer.render(scene, camera);
     //console.log(chunks[0][0].direction)
 }
