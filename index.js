@@ -18,7 +18,8 @@ let texture = {
 // vars
 const blockScale = 1;
 const chunksSize = 16;
-let renderDistance = 20; //8
+const coolDown = 8;
+const renderDistance = 20;
 const worldSize = chunksSize * renderDistance * blockScale;
 const chunksChange = worldSize * 0.4;
 const raycaster = new THREE.Raycaster();
@@ -35,6 +36,19 @@ let speed = 0.2 * blockScale;
 let blockLine = false;
 let collision;
 let plane;
+let ctrlKey = {
+    forward: "w",
+    backward: "s",
+    left: "a",
+    right: "d",
+    jump: " ",
+    squat: "shift",
+    use: "secondary",
+    destory: "main"
+};
+let placed = [];
+let chunkMap = [];
+let coolDownTime = 0;
 
 
 /* init */
@@ -84,18 +98,32 @@ function terrain() {
                     chunk.push(new Block(x * blockScale, v, z * blockScale));
                 }
             chunks.push(chunk);
+            chunkMap.push({ x: i, z: j });
         }
     }
     reDraw();
 }
 terrain();
 
+function identifyChunk(x, z) {
+    let lowestX = edgeBlock({ axe: 'x', side: 0 });
+    let lowestZ = edgeBlock({ axe: 'z', side: 0 });
+    let divX = Math.floor((x - lowestX) / (chunksSize * blockScale));
+    let divZ = Math.floor((z - lowestZ) / (chunksSize * blockScale));
+    for (let i = 0; i < chunkMap.length; i++)
+        if (chunkMap[i].x == divX && chunkMap[i].z == divZ) return i;
+    return undefined;
+}
+
 let key = {};
 window.onload = function() {
-    window.addEventListener('mousedown', function(event) {
+    onmousedown = onmouseup = function(event) {
+        event.preventDefault();
         if (!controls.isLocked) controls.lock();
-    }, false);
-
+        const mouseClick = ["main", "auxiliary", "secondary", "fourth", "fifth"];
+        key[mouseClick[event.button]] = event.type == 'mousedown';
+        //console.log(mouseClick[event.button]);
+    }
 
     onkeydown = onkeyup = function(event) {
         event.preventDefault();
@@ -167,6 +195,60 @@ function Block(x, y, z) {
     // });
 }
 
+function placeBlock() {
+    coolDownTime = coolDown;
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    pointer.x = (0.5) * 2 - 1;
+    pointer.y = -(0.5) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    let intersection = raycaster.intersectObject(instancedChunk);
+
+    if (intersection[0] != undefined && intersection[0].distance < armsLen) {
+        let materiaIndex = intersection[0].face.materialIndex;
+        let position = intersection[0].point;
+        let x = 0,
+            y = 0,
+            z = 0;
+        const inc = blockScale / 2;
+        switch (materiaIndex) {
+            case 0:
+                x = position.x + inc;
+                y = Math.round(position.y / blockScale) * blockScale;
+                z = Math.round(position.z / blockScale) * blockScale;
+                break;
+            case 1:
+                x = position.x - inc;
+                y = Math.round(position.y / blockScale) * blockScale;
+                z = Math.round(position.z / blockScale) * blockScale;
+                break;
+            case 2:
+                x = Math.round(position.x / blockScale) * blockScale;
+                y = position.y + inc;
+                z = Math.round(position.z / blockScale) * blockScale;
+                break;
+            case 3:
+                x = Math.round(position.x / blockScale) * blockScale;
+                y = position.y - inc;
+                z = Math.round(position.z / blockScale) * blockScale;
+                break;
+            case 4:
+                x = Math.round(position.x / blockScale) * blockScale;
+                y = Math.round(position.y / blockScale) * blockScale;
+                z = position.z + inc;
+                break;
+            case 5:
+                x = Math.round(position.x / blockScale) * blockScale;
+                y = Math.round(position.y / blockScale) * blockScale;
+                z = position.z - inc;
+                break;
+        }
+        chunks[identifyChunk(x, z)].push(new Block(x, y, z));
+        placed.push({ x: x, y: y, z: z });
+        reDraw();
+    }
+}
+
 function edgeBlock(side) {
     let posArr = [];
     for (let i = 0; i < chunks.length; i++)
@@ -178,7 +260,7 @@ function edgeBlock(side) {
 
 function reDraw() {
     scene.remove(instancedChunk);
-    instancedChunk = new THREE.InstancedMesh(blockBox, texture["grass"], chunksSize * chunksSize * renderDistance * renderDistance);
+    instancedChunk = new THREE.InstancedMesh(blockBox, texture["grass"], chunksSize * chunksSize * renderDistance * renderDistance + placed.length);
     for (let i = 0, count = 0; i < chunks.length; i++)
         for (let j = 0; j < chunks[i].length; j++, count++) {
             let matrix = new THREE.Matrix4().makeTranslation(
@@ -208,6 +290,10 @@ function lowestZAlt() {
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
                 chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let b = 0; b < placed.length; b++)
+                    if (placed[b].x == x && placed[b].z == z)
+                        chunk.push(new Block(placed[b].x, placed[b].y, placed[b].z));
             }
         }
         newChunk.splice(i * renderDistance, 0, chunk);
@@ -233,6 +319,10 @@ function highestZAlt() {
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
                 chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let b = 0; b < placed.length; b++)
+                    if (placed[b].x == x && placed[b].z == z)
+                        chunk.push(new Block(placed[b].x, placed[b].y, placed[b].z));
             }
         }
         newChunk.splice((i + 1) * renderDistance - 1, 0, chunk);
@@ -258,6 +348,10 @@ function lowestXAlt() {
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
                 chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let b = 0; b < placed.length; b++)
+                    if (placed[b].x == x && placed[b].z == z)
+                        chunk.push(new Block(placed[b].x, placed[b].y, placed[b].z));
             }
         }
         newChunk.splice(i, 0, chunk);
@@ -283,6 +377,10 @@ function highestXAlt() {
                 zoff = inc * z;
                 let v = Math.round(noise.perlin2(xoff, zoff) * amplitude / blockScale) * blockScale;
                 chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let b = 0; b < placed.length; b++)
+                    if (placed[b].x == x && placed[b].z == z)
+                        chunk.push(new Block(placed[b].x, placed[b].y, placed[b].z));
             }
         }
         newChunk.splice(i + chunks.length - renderDistance, 0, chunk);
@@ -371,15 +469,18 @@ function render() {
 }
 
 function update() {
+    if (coolDownTime > 0) coolDownTime--;
     if (controls.isLocked === true) {
         let playerDirection = new THREE.Vector3(0, 0, 0);
-        let moveForward = key["w"] || false;
-        let moveLeft = key["a"] || false;
-        let moveBackward = key["s"] || false;
-        let moveRight = key["d"] || false;
-        let moveUp = key[" "] || false;
-        let moveDown = key["shift"] || false;
-        let canJump = false
+        let moveForward = key[ctrlKey.forward] || false;
+        let moveLeft = key[ctrlKey.left] || false;
+        let moveBackward = key[ctrlKey.backward] || false;
+        let moveRight = key[ctrlKey.right] || false;
+        let moveUp = key[ctrlKey.jump] || false;
+        let moveDown = key[ctrlKey.squat] || false;
+        let use = key[ctrlKey.use] || false;
+        let destory = key[ctrlKey.destory] || false;
+        let canJump = false;
         playerDirection.x = Number(moveLeft) - Number(moveRight);
         playerDirection.z = Number(moveForward) - Number(moveBackward);
         playerDirection.y = Number(moveUp) - Number(moveDown);
@@ -387,6 +488,7 @@ function update() {
         controls.moveForward(playerDirection.z * speed);
         controls.moveRight(-playerDirection.x * speed);
         if (playerDirection.y) camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
+        if (use && coolDownTime == 0) placeBlock();
     } else if (key["f11"]) controls.lock();
 
     if (camera.position.z <= edgeBlock({ axe: 'z', side: 0 }) + chunksChange) lowestZAlt('z-');
