@@ -53,8 +53,8 @@ let coolDownTime = 0;
 
 /* init */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000000);
-scene.fog = new THREE.Fog(0x000000, 2 * blockScale, chunksChange);
+scene.background = new THREE.Color(0xC0FFFF);
+scene.fog = new THREE.Fog(0xD0FFFF, 2 * blockScale, chunksChange);
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 //renderer.setClearColor(0x00F9FF, 1);
