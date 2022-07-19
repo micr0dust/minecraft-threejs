@@ -13,7 +13,8 @@ let texture = {
             map: loaders.load('./textures/blocks/grass_side.png')
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_top.png')
+            map: loaders.load('./textures/blocks/grass_top.png'),
+            color: 0xBBFFBB
         }),
         new THREE.MeshBasicMaterial({
             map: loaders.load('./textures/blocks/dirt.png')
@@ -26,6 +27,11 @@ let texture = {
         })
     ]
 };
+
+texture["grass"].forEach(img => {
+    //img.map.minFilter = THREE.NearestFilter;
+    img.map.magFilter = THREE.NearestFilter;
+});
 
 // vars
 const blockScale = 1;
