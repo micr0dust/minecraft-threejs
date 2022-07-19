@@ -213,24 +213,20 @@ function Block(x, y, z, placed) {
                 if (chunks[i][j].x == x && chunks[i][j].y == y && chunks[i][j].z == z)
                     return true;
         return false;
-    }
+    };
 
     this.direction = [];
     this.adjustFace = function() {
-            for (const { dir }
-                of blockFace) {
-                const overlap = this.getVoxel(
-                    this.x + dir[0],
-                    this.y + dir[1],
-                    this.z + dir[2]
-                );
-                if (overlap) this.direction.push(dir[3]);
-            }
+        for (const { dir }
+            of blockFace) {
+            const overlap = this.getVoxel(
+                this.x + dir[0],
+                this.y + dir[1],
+                this.z + dir[2]
+            );
+            if (overlap) this.direction.push(dir[3]);
         }
-        // texture["grass"].forEach(img => {
-        //     //img.map.minFilter = THREE.NearestFilter;
-        //     img.map.magFilter = THREE.NearestFilter;
-        // });
+    };
 }
 
 function placeBlock() {
