@@ -47,6 +47,8 @@ const worldSize = chunksSize * renderDistance * blockScale;
 const chunksChange = worldSize * 0.4;
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2(0.5 * 2 - 1, -1 * 0.5 * 2 + 1);
+const initGravity = 0.02 * blockScale;
+const initYspeed = 0;
 let armsLen = 10;
 let chunks = [];
 let xoff = 0;
@@ -61,7 +63,6 @@ let instancedChunk = new THREE.InstancedMesh(
 );
 let speed = 0.2 * blockScale;
 let blockLine = false;
-let collision;
 let plane;
 let ctrlKey = {
     forward: 'w',
@@ -77,6 +78,15 @@ let placed = [];
 let destroyed = [];
 let chunkMap = [];
 let coolDownTime = 0;
+let gamemode = 1;
+let sprintSpeedInc = 1.3;
+let sprint = false;
+let fly = false;
+let gravity = initGravity;
+let yspeed = initYspeed;
+let canJump = false;
+let jumping = false;
+let autoJump = true;
 
 /* init */
 const scene = new THREE.Scene();
@@ -147,6 +157,58 @@ function identifyChunk(x, z) {
     return undefined;
 }
 
+let player = {
+    width: 0.8 * blockScale,
+    height: 2 * blockScale,
+    depth: 0.7 * blockScale,
+    x: camera.position.x,
+    y: camera.position.y,
+    z: camera.position.z,
+    forward: function(speed) {
+        controls.moveForward(speed);
+        this.updatePosition();
+    },
+    backward: function(speed) {
+        controls.moveForward(-speed);
+        this.updatePosition();
+    },
+    right: function(speed) {
+        controls.moveRight(speed);
+        this.updatePosition();
+    },
+    left: function(speed) {
+        controls.moveRight(-speed);
+        this.updatePosition();
+    },
+    updatePosition: function() {
+        this.x = camera.position.x;
+        this.y = camera.position.y - this.height / 2;
+        this.z = camera.position.z;
+    }
+};
+
+function intersect(objA, objB) {
+    let a = {
+        minX: objA.x - objA.width / 2,
+        maxX: objA.x + objA.width / 2,
+        minY: objA.y - objA.height / 2,
+        maxY: objA.y + objA.height / 2,
+        minZ: objA.z - objA.depth / 2,
+        maxZ: objA.z + objA.depth / 2,
+    };
+    let b = {
+        minX: objB.x - objB.width / 2,
+        maxX: objB.x + objB.width / 2,
+        minY: objB.y - objB.height / 2,
+        maxY: objB.y + objB.height / 2,
+        minZ: objB.z - objB.depth / 2,
+        maxZ: objB.z + objB.depth / 2,
+    };
+    return (a.minX <= b.maxX && a.maxX >= b.minX) &&
+        (a.minY <= b.maxY && a.maxY >= b.minY) &&
+        (a.minZ <= b.maxZ && a.maxZ >= b.minZ);
+}
+
 let key = {};
 window.onload = function() {
     onmousedown = onmouseup = function(event) {
@@ -205,6 +267,9 @@ function Block(x, y, z, placed) {
     this.x = x;
     this.y = y;
     this.z = z;
+    this.width = blockScale;
+    this.height = blockScale;
+    this.depth = blockScale;
     this.placed = placed;
 
     this.getVoxel = function(x, y, z) {
@@ -363,6 +428,35 @@ function edgeBlock(side) {
             if (side.axe == 'x') posArr.push(chunks[i][j].x);
             else if (side.axe == 'z') posArr.push(chunks[i][j].z);
     return side.side ? Math.max.apply(null, posArr) : Math.min.apply(null, posArr);
+}
+
+function yCollision() {
+    for (let i = 0; i < chunks.length; i++) {
+        for (let j = 0; j < chunks[i].length; j++) {
+            let block = chunks[i][j];
+            let collision = intersect({
+                x: block.x,
+                y: block.y + blockScale * 2,
+                z: block.z,
+                width: blockScale,
+                height: blockScale,
+                depth: blockScale
+            }, player);
+            if (collision &&
+                camera.position.y <= block.y + blockScale / 2 + player.height &&
+                camera.position.y >= block.y) {
+                yspeed = 0;
+                canJump = true;
+                fly = false;
+            }
+            collision = intersect(block, player);
+            if (collision &&
+                camera.position.y >= block.y - blockScale / 2 + player.height &&
+                camera.position.y <= block.y) {
+                yspeed = 0.1 * blockScale;
+            }
+        }
+    }
 }
 
 function reDraw() {
@@ -581,9 +675,14 @@ function render() {
     } else if (plane) plane.visible = false;
 }
 
+let lastForward = 0;
+let lastJump = 0;
+
 function update() {
+    player.updatePosition();
     if (coolDownTime > 0) coolDownTime--;
     if (controls.isLocked === true) {
+        let time = new Date().getTime();
         let playerDirection = new THREE.Vector3(0, 0, 0);
         let moveForward = key[ctrlKey.forward] || false;
         let moveLeft = key[ctrlKey.left] || false;
@@ -593,15 +692,135 @@ function update() {
         let moveDown = key[ctrlKey.squat] || false;
         let use = key[ctrlKey.use] || false;
         let destory = key[ctrlKey.destory] || false;
-        let canJump = false;
+        if (moveForward) {
+            if (time - lastForward <= 300 && time - lastForward >= 100) sprint = true;
+            lastForward = time;
+        } else sprint = false;
+
+        if (moveUp) {
+            if (time - lastJump <= 300 && time - lastJump >= 100) fly = fly ? false : true;
+            if (fly) {
+                yspeed = gravity = 0;
+                jumping = false;
+            } else gravity = initGravity;
+            lastJump = time;
+        } else if (canJump) {
+            fly = false;
+            gravity = initGravity;
+        };
+
         playerDirection.x = Number(moveLeft) - Number(moveRight);
         playerDirection.z = Number(moveForward) - Number(moveBackward);
         playerDirection.y = Number(moveUp) - Number(moveDown);
         //playerDirection.normalize();
-        controls.moveForward(playerDirection.z * speed);
-        controls.moveRight(-playerDirection.x * speed);
-        if (playerDirection.y)
+
+        if (playerDirection.z) {
+            player.forward(playerDirection.z * speed * (sprint ? sprintSpeedInc : 1));
+            for (let i = 0; i < chunks.length; i++) {
+                for (let j = 0; j < chunks[i].length; j++) {
+                    let block = chunks[i][j];
+                    let collision = intersect(block, player);
+
+                    if (collision &&
+                        block.y - blockScale / 2 < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 > player.y + player.height / 2) {
+                        player.backward(playerDirection.z * speed * (sprint ? sprintSpeedInc : 1));
+                        playerDirection.z = 0;
+                        sprint = false;
+                    }
+
+                    collision = intersect({
+                        x: block.x,
+                        y: block.y - blockScale,
+                        z: block.z,
+                        width: blockScale,
+                        height: blockScale,
+                        depth: blockScale
+                    }, player);
+
+                    if (collision &&
+                        block.y - blockScale / 2 + blockScale < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 + blockScale > player.y + player.height / 2 &&
+                        canJump && autoJump) {
+                        player.backward(playerDirection.z * speed * (sprint ? sprintSpeedInc : 1));
+                        playerDirection.z = 0;
+                        sprint = false;
+                        canJump = false;
+                        jumping = true;
+                    } else if (collision &&
+                        block.y - blockScale / 2 + blockScale < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 + blockScale > player.y + player.height / 2) {
+                        player.backward(playerDirection.z * speed * (sprint ? sprintSpeedInc : 1));
+                        playerDirection.z = 0;
+                        sprint = false;
+                    }
+                }
+            }
+        }
+
+        if (playerDirection.x) {
+            player.right(-playerDirection.x * speed);
+            for (let i = 0; i < chunks.length; i++) {
+                for (let j = 0; j < chunks[i].length; j++) {
+                    let block = chunks[i][j];
+                    let collision = intersect(block, player);
+
+                    if (collision &&
+                        block.y - blockScale / 2 < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 > player.y + player.height / 2) {
+                        player.left(-playerDirection.x * speed);
+                        playerDirection.x = 0;
+                    }
+
+                    collision = intersect({
+                        x: block.x,
+                        y: block.y - blockScale,
+                        z: block.z,
+                        width: blockScale,
+                        height: blockScale,
+                        depth: blockScale
+                    }, player);
+
+                    if (collision &&
+                        block.y - blockScale / 2 + blockScale < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 + blockScale > player.y + player.height / 2 &&
+                        canJump && autoJump) {
+                        player.left(-playerDirection.x * speed);
+                        playerDirection.x = 0;
+                        canJump = false;
+                        jumping = true;
+                    } else if (collision &&
+                        block.y - blockScale / 2 + blockScale < player.y + player.height / 2 &&
+                        block.y + blockScale / 2 + blockScale > player.y + player.height / 2) {
+                        player.left(-playerDirection.x * speed);
+                        playerDirection.x = 0;
+                    }
+                }
+            }
+        }
+
+        if (playerDirection.y > 0 && fly) {
             camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
+        } else if (playerDirection.y > 0 && canJump) {
+            canJump = false;
+            jumping = true;
+        }
+        if (jumping && canJump) jumping = false;
+        if (jumping)
+            camera.position.add(new THREE.Vector3(0, speed, 0));
+
+        if (playerDirection.y < 0 && fly) {
+            camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
+        }
+
+        camera.position.y -= yspeed;
+        yspeed += gravity;
+        yCollision();
+
+        // controls.moveForward(playerDirection.z * speed);
+        // controls.moveRight(-playerDirection.x * speed);
+        // if (playerDirection.y)
+        //     camera.position.add(new THREE.Vector3(0, playerDirection.y * speed, 0));
         if (use && coolDownTime == 0) placeBlock();
         if (destory && coolDownTime == 0) destoryBlock();
     } else if (key['f11']) controls.lock();
@@ -615,10 +834,7 @@ function update() {
     else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange)
         highestXAlt('x+');
 
-    document.getElementById('axe').innerText = `
-    X:${camera.position.x.toFixed(2)}
-    Y:${camera.position.y.toFixed(2)}
-    Z:${camera.position.z.toFixed(2)}`
+    document.getElementById('axe').innerText = `X:${camera.position.x.toFixed(2)}Y:${camera.position.y.toFixed(2)}Z:${camera.position.z.toFixed(2)}`;
 
     renderer.render(scene, camera);
     //console.log(chunks[0][0].direction);
