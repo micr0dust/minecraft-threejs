@@ -4,34 +4,39 @@ import { PointerLockControls } from 'https://unpkg.com/three@0.141.0/examples/js
 
 //texture
 let loaders = new THREE.TextureLoader();
+
+function NearestFilter(texture) {
+    texture.magFilter = THREE.NearestFilter;
+}
+
 let texture = {
     grass: [
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_side.png')
+            map: loaders.load('./textures/blocks/grass_side.png', (texture) => { NearestFilter(texture) })
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_side.png')
+            map: loaders.load('./textures/blocks/grass_side.png', (texture) => { NearestFilter(texture) })
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_top.png'),
+            map: loaders.load('./textures/blocks/grass_top.png', (texture) => { NearestFilter(texture) }),
             color: 0xBBFFBB
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/dirt.png')
+            map: loaders.load('./textures/blocks/dirt.png', (texture) => { NearestFilter(texture) })
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_side.png')
+            map: loaders.load('./textures/blocks/grass_side.png', (texture) => { NearestFilter(texture) })
         }),
         new THREE.MeshBasicMaterial({
-            map: loaders.load('./textures/blocks/grass_side.png')
+            map: loaders.load('./textures/blocks/grass_side.png', (texture) => { NearestFilter(texture) })
         })
     ]
 };
 
-texture["grass"].forEach(img => {
-    //img.map.minFilter = THREE.NearestFilter;
-    img.map.magFilter = THREE.NearestFilter;
-});
+// texture["grass"].forEach(img => {
+//     //img.map.minFilter = THREE.NearestFilter;
+//     img.map.magFilter = THREE.NearestFilter;
+// });
 
 // vars
 const blockScale = 1;
