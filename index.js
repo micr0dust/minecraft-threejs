@@ -42,7 +42,7 @@ let texture = {
 const blockScale = 1;
 const chunksSize = 16;
 const coolDown = 8;
-const renderDistance = 20;
+const renderDistance = 8;
 const worldSize = chunksSize * renderDistance * blockScale;
 const chunksChange = worldSize * 0.4;
 const raycaster = new THREE.Raycaster();
@@ -51,6 +51,8 @@ const initGravity = 0.015 * blockScale;
 const initYspeed = 0;
 const deceleration = 1.35;
 const jumpSpeed = 0.17 * blockScale;
+const depth = 5;
+const minWorldY = -25;
 let armsLen = 10;
 let chunks = [];
 let xoff = 0;
@@ -141,7 +143,9 @@ function terrain() {
                     xoff = inc * x;
                     zoff = inc * z;
                     let v = Math.round((noise.perlin2(xoff, zoff) * amplitude) / blockScale) * blockScale;
-                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+                    for (let d = 0; d < depth; d++)
+                        if (v - d * blockScale >= minWorldY)
+                            chunk.push(new Block(x * blockScale, v - d * blockScale, z * blockScale));
                 }
             chunks.push(chunk);
             chunkMap.push({ x: i, z: j });
@@ -562,7 +566,7 @@ function reDraw() {
     instancedChunk = new THREE.InstancedMesh(
         blockBox,
         texture['grass'],
-        chunksSize * chunksSize * renderDistance * renderDistance + placed.length
+        chunksSize * chunksSize * renderDistance * renderDistance * depth + placed.length
     );
     for (let i = 0, count = 0; i < chunks.length; i++)
         for (let j = 0; j < chunks[i].length; j++, count++) {
@@ -570,7 +574,7 @@ function reDraw() {
                 chunks[i][j].x,
                 chunks[i][j].y,
                 chunks[i][j].z
-            )
+            );
             instancedChunk.setMatrixAt(count, matrix);
         }
     scene.add(instancedChunk);
@@ -591,8 +595,10 @@ function lowestZAlt() {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round((noise.perlin2(xoff, zoff) * amplitude) / blockScale) * blockScale;
-                if (!isDestoryed(x, v, z))
-                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let d = 0; d < depth; d++)
+                    if (!isDestoryed(x, v - d * blockScale, z))
+                        chunk.push(new Block(x * blockScale, v - d * blockScale, z * blockScale));
 
                 for (let b = 0; b < placed.length; b++)
                     if (placed[b].x == x && placed[b].z == z)
@@ -620,8 +626,10 @@ function highestZAlt() {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round((noise.perlin2(xoff, zoff) * amplitude) / blockScale) * blockScale;
-                if (!isDestoryed(x, v, z))
-                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let d = 0; d < depth; d++)
+                    if (!isDestoryed(x, v - d * blockScale, z))
+                        chunk.push(new Block(x * blockScale, v - d * blockScale, z * blockScale));
 
                 for (let b = 0; b < placed.length; b++)
                     if (placed[b].x == x && placed[b].z == z)
@@ -649,8 +657,10 @@ function lowestXAlt() {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round((noise.perlin2(xoff, zoff) * amplitude) / blockScale) * blockScale;
-                if (!isDestoryed(x, v, z))
-                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let d = 0; d < depth; d++)
+                    if (!isDestoryed(x, v - d * blockScale, z))
+                        chunk.push(new Block(x * blockScale, v - d * blockScale, z * blockScale));
 
                 for (let b = 0; b < placed.length; b++)
                     if (placed[b].x == x && placed[b].z == z)
@@ -678,8 +688,10 @@ function highestXAlt() {
                 xoff = inc * x;
                 zoff = inc * z;
                 let v = Math.round((noise.perlin2(xoff, zoff) * amplitude) / blockScale) * blockScale;
-                if (!isDestoryed(x, v, z))
-                    chunk.push(new Block(x * blockScale, v, z * blockScale));
+
+                for (let d = 0; d < depth; d++)
+                    if (!isDestoryed(x, v - d * blockScale, z))
+                        chunk.push(new Block(x * blockScale, v - d * blockScale, z * blockScale));
 
                 for (let b = 0; b < placed.length; b++)
                     if (placed[b].x == x && placed[b].z == z)
@@ -851,6 +863,11 @@ function update() {
         lowestXAlt('x-');
     else if (camera.position.x >= edgeBlock({ axe: 'x', side: 1 }) - chunksChange)
         highestXAlt('x+');
+
+    if (camera.position.y < minWorldY * 2) {
+        yspeed = 0;
+        camera.position.y = -minWorldY * 2;
+    }
 
     document.getElementById('axe').innerText = `X:${camera.position.x.toFixed(2)}Y:${camera.position.y.toFixed(2)}Z:${camera.position.z.toFixed(2)}`;
 
